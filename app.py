@@ -9,6 +9,9 @@ app = Flask(__name__)
 # Apply nest_asyncio to fix event loop issues
 nest_asyncio.apply()
 
+# Store active tasks
+active_tasks = set()
+
 # Initialize indian_names to generate random Indian names
 def generate_random_name():
     return indian_names.get_full_name()
@@ -41,6 +44,8 @@ async def join_meeting_after_navigation(page):
         await asyncio.sleep(7200)  # 7200 seconds = 2 hours
         print(f"{random_name} stayed in the meeting for 7200 seconds.")
 
+    except asyncio.CancelledError:
+        print(f"{random_name} was removed from the meeting.")
     except Exception:
         pass  # Suppress errors to avoid unnecessary logs
 
@@ -94,11 +99,32 @@ def start():
     meeting_passcode = data.get('meeting_passcode')
     num_users = int(data.get('num_users'))
 
+    # Generate random names for members
+    members = [generate_random_name() for _ in range(num_users)]
+
     # Run the tasks concurrently
     tasks = [asyncio.create_task(open_browser_and_join(meeting_name, meeting_code, meeting_passcode)) for _ in range(num_users)]
-    asyncio.get_event_loop().run_until_complete(asyncio.gather(*tasks))
+    for task in tasks:
+        active_tasks.add(task)
+        task.add_done_callback(active_tasks.discard)  # Remove task from active_tasks when done
 
-    return jsonify({"status": "success", "message": f"{num_users} users joined the meeting."})
+    return jsonify({
+        "status": "success",
+        "message": f"{num_users} users joined the meeting.",
+        "members": members  # Return the list of members
+    })
+
+@app.route('/end', methods=['POST'])
+def end():
+    # Cancel all active tasks
+    for task in active_tasks:
+        task.cancel()
+    active_tasks.clear()
+
+    return jsonify({
+        "status": "success",
+        "message": "All meeting tasks have been stopped."
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
