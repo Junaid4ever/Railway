@@ -3,7 +3,7 @@
     "nixpacksPlan": {
       "phases": {
         "setup": {
-          "nixPkgs": ["python39", "nodejs", "libnss3", "libatk-bridge2.0", "libgtk-3-0", "libgbm1"]
+          "nixPkgs": ["python39", "nodejs", "nss", "at-spi2-core", "gtk3", "libgpg-error"]
         },
         "build": {
           "cmds": [
